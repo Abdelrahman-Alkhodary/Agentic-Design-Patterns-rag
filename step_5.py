@@ -14,12 +14,11 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 load_dotenv()
+client = OpenAI()
 
 # Configuration
-api_key = os.environ.get("OPENAI_API_KEY")
 DB_CONFIG = "postgresql://rag_user:rag_password@localhost:5434/rag_hybrid_db"
 
-client = OpenAI(api_key=api_key)
 
 def get_embedding(text):
     response = client.embeddings.create(input=text, model="text-embedding-3-small")
