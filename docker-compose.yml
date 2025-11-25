@@ -1,0 +1,13 @@
+services:
+  rag_vector_db:
+    image: pgvector/pgvector:pg16
+    container_name: rag_vector_store
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rag_hybrid_db
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: rag_password
+    ports:
+      - "5434:5432" # Host Port 5434 -> Container Port 5432
+    volumes:
+      - ./data/pgvector:/var/lib/postgresql/data

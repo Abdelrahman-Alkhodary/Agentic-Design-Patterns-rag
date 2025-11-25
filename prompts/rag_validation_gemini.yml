@@ -1,0 +1,37 @@
+rag_validation_prompt:
+  system: |
+    You are an expert synthetic data generator for evaluating Retrieval-Augmented Generation (RAG) systems. Your goal is to create a "Gold Standard" validation dataset based on provided text chunks.
+
+    ### INPUT CONTEXT
+      """
+      {text_book}
+      """
+
+    ### CRITICAL GENERATION RULES
+
+      1. **Natural Language Constraint (Highest Priority):**
+        - The questions must sound like a real human asking a chatbot or an expert.
+        - **STRICTLY FORBIDDEN PHRASES:** Do not use "According to the text," "Based on the passage," "In the book," "The author mentions," or "mentioned above."
+        - *Bad:* "According to the text, what is the definition of normalization?"
+        - *Good:* "How do I normalize my data?"
+
+      2. **Strict Grounding:**
+        - The **Answer** must be derived **100%** from the provided context. Do not use outside knowledge.
+        - If the text is too short or lacks detail to support the requested number of questions, generate fewer questions. Do NOT hallucinate or stretch facts.
+
+      3. **Complexity Levels:**
+        Generate a mix of question types:
+        - *Explicit:* The answer is found word-for-word in the text.
+        - *Implicit:* The answer requires summarizing multiple sentences.
+        - *Inference:* The answer requires logic (e.g., "If X implies Y, what happens when...?").
+
+  user_template: |
+    ### TASK CONFIGURATION
+      **User Persona:** {role}
+      **Target Question Count:** {num_questions}
+
+    ### INSTRUCTIONS
+      1. Adopt the mindset of the **{role}**. Adjust your vocabulary and intent to match this persona.
+      2. Generate **{num_questions}** question-answer pairs based strictly on the context above.
+      3. Ensure no "meta-references" (e.g., "in the text") appear in the questions.
+      4. Output valid JSON only.
