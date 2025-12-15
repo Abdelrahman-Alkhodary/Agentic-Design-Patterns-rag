@@ -82,7 +82,6 @@ def setup_database():
                 id BIGSERIAL PRIMARY KEY,
                 user_query TEXT,
                 bot_response TEXT,
-                retrieved_doc_ids JSONB,
                 was_cache_hit BOOLEAN,
                 execution_time INTEGER,
                 timestamp TIMESTAMP DEFAULT NOW()
@@ -106,6 +105,55 @@ def store_chunk(content, metadata, embedding_fn):
         )
         conn.commit()
         
+def store_semantic(user_query, query_embedding, answer):
+    """Generates an embedding and stores the chunk in Postgres."""
+    # Insert into the DB
+    with psycopg.connect(DB_CONFIG) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO semantic_cache (question_text, question_embedding, answer_text)
+            VALUES (%s, %s, %s);
+            """, (user_query, query_embedding, answer)
+        )
+        conn.commit()
+      
+def search_semantic_cache(query_embedding, threshold=0.90):
+    """Checks the semantic cache for a similar question."""
+    with psycopg.connect(DB_CONFIG) as conn:
+        register_vector(conn)
+        cursor = conn.cursor()
+
+        # We search for the closest question in the cache
+        # And filtering by distance (1 - cosine_similarity < 1 - threshold)
+        # Note: <=> operator returns cosine distance.
+        # distance = 1 - similarity. So similarity = 1 - distance.
+        # We want similarity > threshold, so (1 - distance) > threshold 
+        # => distance < (1 - threshold)
+        
+        distance_threshold = 1 - threshold
+        cursor.execute("""
+            SELECT answer_text
+            FROM semantic_cache
+            WHERE question_embedding <=> %s::vector < %s
+            ORDER BY question_embedding <=> %s::vector ASC
+        """, (query_embedding, distance_threshold, query_embedding))
+        vector_results = cursor.fetchall()
+    return vector_results[0] if vector_results else None
+  
+def store_interaction(user_query, bot_answer, was_cache_hit, execution_time):
+    """Stores the interaction of user query and the answer in Postgres."""
+    # Insert into the DB
+    with psycopg.connect(DB_CONFIG) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO interaction_log (user_query, bot_response, was_cache_hit, execution_time)
+            VALUES (%s, %s, %s, %s);
+            """, (user_query, bot_answer, was_cache_hit, execution_time)
+        )
+        conn.commit()
+
 def hybrid_search(query_text, embedding_fn, top_k=10, rrf_k=60):
     """
     Performs Hybrid Search (Vector + Keyword) and combines results using RRF.
@@ -179,5 +227,5 @@ def hybrid_search(query_text, embedding_fn, top_k=10, rrf_k=60):
             reverse=True
         )
 
-        return sorted_results[:top_k]
+        return query_vector, sorted_results[:top_k]
 
